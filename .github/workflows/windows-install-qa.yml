@@ -1,0 +1,45 @@
+name: FrameGrab installation verification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/Verify-Windows-Install.ps1
+      - .github/workflows/windows-install-qa.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  install:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate latest successful Windows build
+        id: release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $runs=gh api "repos/${{ github.repository }}/actions/runs?status=success&per_page=30" | ConvertFrom-Json
+          $source=$runs.workflow_runs | Where-Object name -EQ 'FrameGrab Windows x64 release' | Select-Object -First 1
+          if(!$source){throw 'No successful Windows build available'}
+          "id=$($source.id)" | Add-Content $env:GITHUB_OUTPUT
+      - uses: actions/download-artifact@v4
+        with:
+          name: FrameGrab-Windows-x64
+          run-id: ${{ steps.release.outputs.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: .
+      - name: Verify release checksums
+        shell: pwsh
+        run: |
+          foreach($line in Get-Content dist/SHA256SUMS.txt){
+            if($line -notmatch '^([a-f0-9]{64})  (.+)$'){throw 'Invalid checksum line'}
+            $expected=$Matches[1]; $name=$Matches[2]
+            if((Get-FileHash "dist/$name" -Algorithm SHA256).Hash.ToLower() -ne $expected){throw "Hash mismatch $name"}
+          }
+      - name: Install and launch packaged application
+        shell: pwsh
+        run: ./scripts/Verify-Windows-Install.ps1
+

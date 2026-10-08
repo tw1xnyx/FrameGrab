@@ -4,10 +4,10 @@ $project=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $dest=Join-Path $env:RUNNER_TEMP 'FrameGrab Installation Test'
 if(!$env:RUNNER_TEMP){throw 'This test is restricted to the CI runner'}
 $setup=Get-ChildItem (Join-Path $project 'dist') -Filter 'FrameGrab_Setup_*.exe' | Select-Object -First 1
-$p=Start-Process $setup.FullName -ArgumentList @('/S','/currentuser',"/D=$dest") -WindowStyle Hidden -PassThru -Wait
+$p=Start-Process $setup.FullName -ArgumentList "/S /currentuser /D=`"$dest`"" -WindowStyle Hidden -PassThru -Wait
 if($p.ExitCode -ne 0){throw "Installer exit $($p.ExitCode)"}
 $exe=Join-Path $dest 'FrameGrab.exe'
-if(!(Test-Path $exe)){throw 'Installed executable missing'}
+if(!(Test-Path $exe)){Get-ChildItem $env:RUNNER_TEMP -Recurse -Filter FrameGrab.exe -ErrorAction SilentlyContinue | Select-Object FullName | Format-List;throw 'Installed executable missing at requested path'}
 foreach($name in @('yt-dlp.exe','ffmpeg.exe','ffprobe.exe','deno.exe')){
   if(!(Test-Path (Join-Path $dest "resources/tools/$name"))){throw "Installed tool missing: $name"}
 }
@@ -35,3 +35,4 @@ if($p.ExitCode -ne 0 -or !(Test-Path $exe)){throw 'In-place package installation
 if((Get-Content $marker -Raw).Trim() -ne 'preserve-through-in-place-install'){throw 'Application data lost'}
 Write-Host 'PASS silent custom-directory install, bundled tools, installed engine readiness, same-version in-place reinstall and app-data preservation'
 Write-Host 'Interactive wizard, new-version migration and in-app update flow still require separate verification.'
+
