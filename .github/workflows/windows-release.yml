@@ -34,6 +34,9 @@ jobs:
         run: ./scripts/Build-Windows.ps1
       - name: Real media pipeline tests
         run: python tests/test_windows_real.py
+      - name: Install and launch packaged application
+        shell: pwsh
+        run: ./scripts/Verify-Windows-Install.ps1
       - name: Generate SHA256 checksums
         shell: pwsh
         run: |
@@ -48,3 +51,4 @@ jobs:
             dist/*.yml
             dist/SHA256SUMS.txt
             build-dependency-hashes.json
+
