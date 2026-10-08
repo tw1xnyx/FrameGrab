@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark"><meta name="theme-color" content="#e6eaf3">
+<title>FrameGrab Liquid Studio — Download Center</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<svg class="defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+<symbol id="ic-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></symbol>
+<symbol id="ic-home" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+<symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></symbol>
+<symbol id="ic-folder" viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="ic-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+<symbol id="ic-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l-1.6 1.6a1.7 1.7 0 0 0-1.9-.3l-1.2.5-.5 2.2h-2.3l-.5-2.2-1.2-.5a1.7 1.7 0 0 0-1.9.3L7 16.9a1.7 1.7 0 0 0 .3-1.9l-.5-1.2-2.2-.5V11l2.2-.5.5-1.2A1.7 1.7 0 0 0 7 7.4l1.6-1.6a1.7 1.7 0 0 0 1.9.3l1.2-.5.5-2.2h2.3l.5 2.2 1.2.5a1.7 1.7 0 0 0 1.9-.3l1.6 1.6a1.7 1.7 0 0 0-.3 1.9l.5 1.2 2.2.5v2.3l-2.2.5z"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
+<symbol id="ic-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M19 5l-1.5 1.5m-11 11L5 19"/></symbol>
+<symbol id="ic-moon" viewBox="0 0 24 24"><path d="M20.5 13.2A9 9 0 0 1 10.8 3.5a9 9 0 1 0 9.7 9.7z"/></symbol>
+<symbol id="ic-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></symbol>
+<symbol id="ic-x" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19"/></symbol>
+<symbol id="ic-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></symbol>
+<symbol id="ic-refresh" viewBox="0 0 24 24"><path d="M20 10a8 8 0 1 0 .1 4M20 4v6h-6"/></symbol>
+<symbol id="ic-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+<symbol id="ic-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="ic-external" viewBox="0 0 24 24"><path d="M13 4h7v7m0-7-9 9M19 13v6H5V5h6"/></symbol>
+<symbol id="ic-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v6m4-6v6"/></symbol>
+<symbol id="ic-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 5V3H6a2 2 0 0 0-2 2v11h2"/></symbol>
+<symbol id="ic-check" viewBox="0 0 24 24"><path d="m4 12 5 5 11-11"/></symbol>
+<symbol id="ic-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+<symbol id="ic-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18M12 3c-5 5-5 13 0 18"/></symbol>
+<symbol id="ic-sparkle" viewBox="0 0 24 24"><path d="m12 2 2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z"/></symbol>
+<symbol id="ic-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+</svg>
+<canvas id="ambient" aria-hidden="true"></canvas><div class="ambient-fallback" aria-hidden="true"></div><div class="ambient-grain" aria-hidden="true"></div>
+<div class="shell">
+ <aside class="rail" id="rail">
+  <div class="brand-row"><span class="brand-logo">F<span>G</span></span><div class="brand-words"><strong>FrameGrab</strong><small>STUDIO EDITION</small></div></div>
+  <nav class="rail-links" aria-label="Main">
+   <button class="rail-link selected" data-page="tasks"><span class="rail-glyph"><svg><use href="#ic-download"/></svg></span><span>Download<br>Center</span></button>
+   <button class="rail-link" data-page="history"><span class="rail-glyph"><svg><use href="#ic-clock"/></svg></span><span>History</span></button>
+   <button class="rail-link" data-page="files"><span class="rail-glyph"><svg><use href="#ic-folder"/></svg></span><span>Files</span></button>
+   <button class="rail-link" data-page="queue"><span class="rail-glyph"><svg><use href="#ic-list"/></svg></span><span>Queue</span></button>
+  </nav>
+  <div class="rail-bottom"><button class="rail-new optical" data-optical="control" id="newButton"><svg><use href="#ic-plus"/></svg><span>New Download</span></button></div>
+ </aside>
+ <div class="workarea">
+  <header class="topbar glass-optical" data-optical="bar">
+   <button class="mobile-menu icon-btn" id="menuButton" aria-label="Open navigation"><svg><use href="#ic-menu"/></svg></button>
+   <div class="top-brand"><span class="brand-logo tiny">F<span>G</span></span><strong>FrameGrab</strong></div>
+   <nav class="top-nav" aria-label="Sections"><button class="top-link active" data-page="tasks"><svg><use href="#ic-download"/></svg><span>Download Tasks</span></button><button class="top-link" data-page="settings"><svg><use href="#ic-settings"/></svg><span>Settings</span></button></nav>
+   <div class="top-actions"><div class="search-shell" id="searchShell"><button class="icon-btn" id="searchButton" aria-label="Search downloads"><svg><use href="#ic-search"/></svg></button><input id="taskSearch" type="search" placeholder="Search downloads…" aria-label="Search downloads"><button class="icon-btn small" id="searchClose" aria-label="Close search"><svg><use href="#ic-x"/></svg></button></div><button class="icon-btn" id="wallpaperButton" aria-label="Choose animated wallpaper" aria-expanded="false"><svg><use href="#ic-sparkle"/></svg></button><button class="icon-btn" id="themeButton" aria-label="Switch color theme"><svg><use href="#ic-moon"/></svg></button></div>
+   <div class="popover glass-optical" id="wallpaperPopover" role="dialog" aria-label="Background presets" hidden><strong>Ambient scenes</strong><p>Subtle motion. Beautifully focused.</p><div class="presets"><button data-preset="aurora" class="preset"><i class="swatch aurora"></i>Aurora</button><button data-preset="silk" class="preset"><i class="swatch silk"></i>Silk</button><button data-preset="lagoon" class="preset"><i class="swatch lagoon"></i>Lagoon</button></div></div>
+  </header>
+  <main class="main-content">
+   <section class="page active" id="page-tasks" aria-label="Download tasks">
+    <div class="heading"><div><div class="eyebrow">YOUR CREATIVE WORKSPACE <span class="live-dot"></span> <span id="engineText">LOCAL ENGINE</span></div><h1>Download Center</h1><p>Manage active, completed, and failed downloads in one place.</p></div><div class="head-commands"><button id="clearFinished" class="quiet-btn"><svg><use href="#ic-trash"/></svg>Clear finished</button><button class="primary-btn" id="quickDownload"><svg><use href="#ic-plus"/></svg>New Download</button></div></div>
+    <div class="toolstrip"><div class="segmented glass-optical" data-optical="selection" id="taskFilters"><div class="segment-thumb" aria-hidden="true"></div><button class="segment active" data-filter="all" aria-pressed="true">All <span id="countAll"></span></button><button class="segment" data-filter="downloading" aria-pressed="false">Downloading</button><button class="segment" data-filter="completed" aria-pressed="false">Completed</button><button class="segment" data-filter="failed" aria-pressed="false">Failed</button></div><div class="save-pill"><svg><use href="#ic-folder"/></svg><span id="saveFolderCompact">Your Downloads</span></div></div>
+    <div class="tasks" id="taskList"><div class="empty-card"><div class="empty-orb"><svg><use href="#ic-download"/></svg></div><h2>Your next download starts here</h2><p>Paste a link from YouTube, Instagram, TikTok, or thousands of other supported sites.</p><button class="primary-btn" id="emptyStart"><svg><use href="#ic-plus"/></svg>Add video links</button></div></div>
+   </section>
+   <section class="page" id="page-history" aria-label="History"><div class="heading"><div><div class="eyebrow">YOUR LIBRARY</div><h1>History</h1><p>Every completed download, across sessions.</p></div><button class="quiet-btn" id="clearHistory">Clear History</button><button class="quiet-btn" id="openHistoryFolder"><svg><use href="#ic-folder"/></svg>Open folder</button></div><div class="history-toolbar"><div class="field-search"><svg><use href="#ic-search"/></svg><input id="historySearch" placeholder="Find a file by name or platform" aria-label="Search history"></div><span id="historyCount">0 files</span></div><div class="history-list" id="historyList"></div></section>
+   <section class="page" id="page-files" aria-label="Files"><div class="heading"><div><div class="eyebrow">SAVED LOCALLY</div><h1>Your files</h1><p>All videos, directly in one folder. No extra subfolders.</p></div></div><section class="file-card"><div class="folder-art"><svg><use href="#ic-folder"/></svg></div><div><label>DOWNLOAD DESTINATION</label><strong id="filesFolder">Loading…</strong><p>Original video names are kept. You control where everything goes.</p><div class="inline-actions"><button class="primary-btn" id="fileOpen"><svg><use href="#ic-folder"/></svg>Open folder</button><button class="quiet-btn" id="fileChange">Change destination</button></div></div></section></section>
+   <section class="page" id="page-queue" aria-label="Queue"><div class="heading"><div><div class="eyebrow">LIVE ACTIVITY</div><h1>Download Queue</h1><p>Track progress in real time. Retry failures without starting over.</p></div><button class="primary-btn" id="queueNew"><svg><use href="#ic-plus"/></svg>New download</button></div><div class="tasks" id="queueList"></div></section>
+   <section class="page" id="page-settings" aria-label="Settings"><div class="heading"><div><div class="eyebrow">MAKE IT YOURS</div><h1>Settings</h1><p>Everything you need. Nothing you don't.</p></div></div>
+    <div class="settings-grid"><section class="settings-card"><h2>Appearance</h2><p>Light, color and motion with a purpose.</p><div class="setting-row"><label for="themeMode">Theme preference</label><select id="themeMode"><option value="system">Follow Windows</option><option value="light">Light</option><option value="dark">Dark</option></select></div><div class="setting-row"><div><strong>Light appearance</strong><small>A softer, luminous glass environment</small></div><button class="switch" id="lightSwitch" role="switch" aria-checked="true" aria-label="Light appearance"><span></span></button></div><div class="setting-row"><div><strong>Ambient movement</strong><small>Slow, GPU-accelerated wallpaper</small></div><button class="switch" id="motionSwitch" role="switch" aria-checked="true" aria-label="Ambient movement"><span></span></button></div><div class="setting-row"><div><strong>Optical refraction</strong><small>Chromium lensing; smooth fallback elsewhere</small></div><button class="switch" id="opticsSwitch" role="switch" aria-checked="true" aria-label="Optical refraction"><span></span></button></div><div class="setting-row slider-row"><div><strong>Glass intensity</strong><small>Control the optical depth of floating surfaces</small></div><div class="slider-control"><input type="range" id="glassIntensity" min="0" max="100" value="58" aria-label="Glass intensity"><output id="glassValue">58%</output></div></div><div class="setting-row"><div><strong>Show thumbnails</strong><small>Preview video artwork in download cards</small></div><button class="switch" id="thumbnailSwitch" role="switch" aria-checked="true" aria-label="Show thumbnails"><span></span></button></div><div class="setting-row"><div><strong>Background scene</strong><small>Choose a living wallpaper</small></div><select id="presetSelect" aria-label="Background scene"><option value="aurora">Aurora</option><option value="silk">Silk</option><option value="lagoon">Lagoon</option></select></div></section>
+    <section class="settings-card"><h2>Downloads & storage</h2><p>Make every file easy to find.</p><label class="field-label" for="folderInput">Save folder</label><div class="folder-input-line"><input id="folderInput" spellcheck="false" aria-label="Download folder path"><button class="quiet-btn" id="pickFolder"><svg><use href="#ic-folder"/></svg>Browse</button></div><button class="primary-btn" id="saveFolder">Save folder</button><p class="muted-note">Your downloads are never separated into numbered folders. Duplicates can be automatically renamed.</p><div class="setting-divider"></div><div class="system-line"><span class="live-dot"></span><div><strong id="systemLabel">Checking engine…</strong><small id="engineDetails">yt-dlp · FFmpeg · Deno</small></div></div></section>
+      <section class="settings-card desktop-settings" id="desktopSettings">
+        <h2>Desktop updates</h2><p>Install updates into the same application without losing your downloads or settings.</p>
+        <div class="setting-row"><div><strong>Current version</strong><small id="desktopVersion">Detecting installed build...</small></div><span id="updateStatus">Checking configuration...</span></div>
+        <label class="field-label" for="updateFeed">HTTPS update feed (your published release directory)</label>
+        <div class="folder-input-line"><input id="updateFeed" type="url" placeholder="https://updates.example.com/framegrab/" spellcheck="false"><button id="saveUpdateFeed" class="quiet-btn">Save</button></div>
+        <p class="muted-note">A real update server must be configured by the publisher. You can test an update locally using the included Windows build instructions.</p>
+        <div class="inline-actions desktop-action-row"><button id="checkUpdates" class="primary-btn">Check for Updates</button><button id="downloadUpdate" class="quiet-btn" disabled>Download Update</button><button id="installUpdate" class="quiet-btn" disabled>Restart to Update</button></div>
+        <p id="updateDetails" role="status" aria-live="polite"></p>
+      </section>
+      <section class="settings-card desktop-settings" id="diagnosticSettings">
+        <h2>Diagnostics &amp; support</h2><p>Check bundled tools and copy a safe troubleshooting report.</p>
+        <div class="inline-actions desktop-action-row"><button id="runDiagnostics" class="quiet-btn">Check Dependencies</button><button id="copyDiagnostics" class="quiet-btn">Copy Diagnostics</button><button id="openLogFolder" class="quiet-btn">Open Logs</button></div>
+        <pre id="diagnosticsText" class="diagnostics-output" aria-live="polite">Not checked yet.</pre>
+      </section></div>
+   </section>
+  </main>
+ </div>
+</div>
+<div class="mobile-dock glass-optical" data-optical="bar" aria-label="Mobile navigation"><button data-page="tasks" class="active"><svg><use href="#ic-download"/></svg><span>Tasks</span></button><button data-page="history"><svg><use href="#ic-clock"/></svg><span>History</span></button><button data-page="queue"><svg><use href="#ic-list"/></svg><span>Queue</span></button><button id="mobileAdd" class="mobile-add" aria-label="New download"><svg><use href="#ic-plus"/></svg></button><button data-page="files"><svg><use href="#ic-folder"/></svg><span>Files</span></button><button data-page="settings"><svg><use href="#ic-settings"/></svg><span>Settings</span></button></div>
+<div class="modal-overlay" id="modalOverlay" hidden><section class="download-modal glass-optical" data-optical="panel" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><div class="modal-drag" aria-hidden="true"></div><div class="modal-header"><div><div class="eyebrow">ADD TO QUEUE</div><h2 id="dialogTitle">New download</h2><p>Drop in a URL—or an entire batch.</p></div><button class="icon-btn" id="closeModal" aria-label="Close download dialog"><svg><use href="#ic-x"/></svg></button></div><label class="field-label" for="urlInput">VIDEO LINKS</label><div class="input-stage"><textarea id="urlInput" placeholder="Paste video URLs, one per line…&#10;https://youtube.com/watch?v=…&#10;https://instagram.com/reel/…" spellcheck="false"></textarea><div class="input-caption"><span id="linkCounter">0 links detected</span><button class="text-btn" id="pasteLinks"><svg><use href="#ic-copy"/></svg>Paste</button></div></div><div class="analyze-bar"><button id="analyzeButton" class="quiet-btn analyze-action"><svg><use href="#ic-search"/></svg> Analyze video</button><span id="analyzeHint">Load thumbnail, duration and trim controls</span></div>
+<div class="analysis-preview" id="analysisPreview" hidden>
+ <div class="preview-cover" id="previewCover"><img id="previewThumb" alt="Video thumbnail"><span class="preview-badge" id="previewPlatform">Video</span></div>
+ <div class="preview-info"><strong id="previewTitle">Video details</strong><small id="previewSubtitle">—</small></div>
+</div>
+<div class="download-mode"><div class="mode-heading">DOWNLOAD MODE</div><div class="mode-options" role="group" aria-label="Download type"><button class="mode-choice active" id="modeFull" aria-pressed="true">Entire video</button><button class="mode-choice" id="modeClip" aria-pressed="false">Selected section <span>✂</span></button></div></div>
+<div class="trim-studio" id="trimStudio" hidden>
+ <div class="trim-top"><strong>Clip Studio</strong><span id="selectedLength">Select a video to get duration</span></div>
+ <div class="video-preview" id="videoPreview"><div class="preview-placeholder"><svg><use href="#ic-play"/></svg><span id="previewInstructions">Analyze a video to load preview where available</span></div></div>
+ <div class="trim-controls"><button type="button" id="markStart" class="trim-btn">Set start from preview</button><button type="button" id="markEnd" class="trim-btn">Set end from preview</button><button type="button" id="resetSelection" class="trim-btn trim-reset">Reset selection</button></div>
+ <div class="trim-timeline" id="trimTimeline" aria-label="Selected video range">
+  <div class="trim-line"></div><div class="trim-fill" id="trimFill"></div>
+  <button type="button" class="trim-handle" id="trimHandleStart" aria-label="Start position" aria-valuemin="0" role="slider" tabindex="0"></button>
+  <button type="button" class="trim-handle" id="trimHandleEnd" aria-label="End position" aria-valuemin="0" role="slider" tabindex="0"></button>
+ </div><div class="trim-labels"><span>00:00:00</span><span id="timelineDuration">—</span></div>
+ <div class="clip-time-fields"><div class="input-field"><label for="start">START · HH:MM:SS</label><input id="start" inputmode="text" placeholder="00:05:20" aria-label="Clip start time"></div><div class="input-field"><label for="end">END · HH:MM:SS</label><input id="end" inputmode="text" placeholder="00:08:45" aria-label="Clip end time"></div></div>
+ <div class="cut-modes"><label class="cut-option"><input type="radio" name="cutMode" value="fast">Fast cut <span>Keyframe-aligned, quickest</span></label><label class="cut-option"><input type="radio" name="cutMode" value="accurate" checked>Accurate cut <span>Re-encode near cut points</span></label></div>
+ <div class="trim-notice" id="trimNotice">Video preview is supported for YouTube embeds and directly playable media. Other sites can still use manual times if their extractor supports sections.</div>
+</div>
+<div class="platform-label">YouTube <i></i> Instagram <i></i> TikTok <i></i> X <i></i> Vimeo <span>+ more</span></div><div class="modal-options"><div class="input-field"><label for="quality">QUALITY</label><select id="quality"><option value="best">Best available</option><option value="2160">4K / 2160p</option><option value="1440">1440p</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></div><div class="input-field"><label for="kind">FORMAT</label><select id="kind"><option value="mp4">MP4 · Video + audio</option><option value="mkv">MKV · Video + audio</option><option value="mp3">MP3 · Audio only</option></select></div><div class="input-field"><label for="parallel">AT A TIME</label><select id="parallel"><option value="1">1 download</option><option value="2" selected>2 downloads</option><option value="3">3 downloads</option></select></div></div><button id="advancedButton" class="advanced-toggle" aria-expanded="false"><span>More options</span><svg><use href="#ic-chevron-down"/></svg></button><div class="advanced-settings" id="advancedSettings" hidden><div class="modal-options two"><div class="input-field"><label for="duplicate">IF FILE EXISTS</label><select id="duplicate"><option value="rename">Rename duplicate</option><option value="skip">Skip existing file</option></select></div><div class="input-field"><label for="browser">BROWSER LOGIN</label><select id="browser"><option value="none">Off (recommended)</option><option value="chrome">Chrome</option><option value="edge">Edge</option><option value="firefox">Firefox</option><option value="brave">Brave</option><option value="vivaldi">Vivaldi</option></select></div></div><div class="option-toggles"><label><input type="checkbox" id="subs">English subtitles</label></div></div><div class="modal-footer"><div class="destination"><svg><use href="#ic-folder"/></svg><span id="modalFolder">Your download folder</span></div><button class="primary-btn" id="startDownload"><svg><use href="#ic-download"/></svg>Download <span id="downloadCountText">video</span></button></div></section></div>
+
+<div class="error-overlay" id="errorOverlay" hidden>
+ <section class="error-dialog glass-optical" data-optical="panel" role="dialog" aria-modal="true" aria-labelledby="errorHeading">
+  <h2 id="errorHeading">Operation failed</h2>
+  <p id="errorSummary">The action did not finish.</p>
+  <details><summary>Technical details</summary><pre id="errorTechnical"></pre></details>
+  <div class="inline-actions desktop-action-row"><button class="quiet-btn" id="copyError">Copy Error</button><button class="quiet-btn" id="errorLogs">Open Logs</button><button class="primary-btn" id="closeError">Close</button></div>
+ </section>
+</div>
+<div id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+<script src="/desktop.js" defer></script><script src="/background.js" defer></script><script src="/glass.js" defer></script><script src="/app.js" defer></script>
+</body></html>

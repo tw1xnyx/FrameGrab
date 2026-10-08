@@ -1,0 +1,88 @@
+{
+  "name": "framegrab-desktop",
+  "productName": "FrameGrab",
+  "version": "8.0.0",
+  "description": "Native Windows video downloader with an internally managed local media engine",
+  "main": "desktop/main.cjs",
+  "author": "FrameGrab",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "dev": "electron .",
+    "test:source": "node --test tests-desktop/*.test.cjs",
+    "build:win": "electron-builder --win nsis --x64 --publish never",
+    "build:dir": "electron-builder --win dir --x64",
+    "test:update-host": "node scripts/test-update-server.cjs"
+  },
+  "dependencies": {
+    "electron-updater": "6.6.2"
+  },
+  "devDependencies": {
+    "electron": "35.7.5",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "com.framegrab.desktop",
+    "productName": "FrameGrab",
+    "asar": true,
+    "publish": {
+      "provider": "generic",
+      "url": "https://updates.example.invalid/framegrab/"
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "service",
+        "to": "service",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!*.pyc"
+        ]
+      },
+      {
+        "from": "tools",
+        "to": "tools",
+        "filter": [
+          "*.exe"
+        ]
+      },
+      {
+        "from": "runtime",
+        "to": "runtime",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/framegrab.ico",
+      "executableName": "FrameGrab"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "FrameGrab",
+      "artifactName": "FrameGrab_Setup_${version}.${ext}",
+      "uninstallDisplayName": "FrameGrab Video Downloader",
+      "deleteAppDataOnUninstall": false,
+      "differentialPackage": true,
+      "include": "scripts/installer.nsh",
+      "installerSidebar": "assets/installer-sidebar.bmp",
+      "uninstallerSidebar": "assets/installer-sidebar.bmp"
+    }
+  }
+}

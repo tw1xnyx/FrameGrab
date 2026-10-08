@@ -1,0 +1,50 @@
+name: FrameGrab Windows x64 release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            tools
+            runtime
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: windows-x64-${{ hashFiles('package-lock.json', 'scripts/Build-Windows.ps1') }}
+      - name: Native source tests
+        run: node --test tests-desktop/*.test.cjs
+      - name: Build graphical installer and update package
+        shell: pwsh
+        run: ./scripts/Build-Windows.ps1
+      - name: Real media pipeline tests
+        run: python tests/test_windows_real.py
+      - name: Generate SHA256 checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem dist -File | Where-Object Extension -In '.exe','.yml','.blockmap' | ForEach-Object { "$( (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower() )  $($_.Name)" } | Set-Content dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FrameGrab-Windows-x64
+          compression-level: 0
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/*.yml
+            dist/SHA256SUMS.txt
+            build-dependency-hashes.json

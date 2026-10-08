@@ -1,0 +1,9 @@
+node_modules/
+dist/
+tools/
+runtime/
+.staging/
+.qa/
+__pycache__/
+*.pyc
+build-dependency-hashes.json
