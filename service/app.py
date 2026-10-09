@@ -1,5 +1,10 @@
 """Universal Downloader v5. Browser-only UI, Windows portable launch, stdlib local server."""
 import copy
+import hashlib
+import sys
+from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+import media_compat
 import logging
 from logging.handlers import RotatingFileHandler
 import platform
@@ -32,7 +37,7 @@ LOG_DIR = APP_DATA / 'logs'
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG = APP_DATA / 'settings.json'
 HISTORY = APP_DATA / 'history.json'
-BUILD = '8.0.0-desktop-source'
+BUILD = '8.2.0'
 DEFAULT_PORT = int(os.environ.get('FRAMEGRAB_SERVICE_PORT', '8181'))
 SESSION_TOKEN = os.environ.get('FRAMEGRAB_API_TOKEN', '')
 PARENT_PID = int(os.environ.get('FRAMEGRAB_PARENT_PID', '0'))
@@ -58,7 +63,7 @@ JOBS = {}
 PROCESSES = {}
 CANCEL = {}
 RESERVED = set()
-SETTINGS = {'download_dir': str(DEFAULT_FOLDER)}
+SETTINGS = {'download_dir': str(DEFAULT_FOLDER), 'download_mode': 'premiere', 'create_proxy': False}
 HIST = []
 POOL = ThreadPoolExecutor(max_workers=3)
 
@@ -74,6 +79,8 @@ def load_state():
     try:
         s = json.loads(CONFIG.read_text(encoding='utf-8'))
         p = Path(s.get('download_dir', ''))
+        if isinstance(s,dict): SETTINGS.update({k:v for k,v in s.items() if k!='download_dir'})
+        if SETTINGS.get('download_mode') not in ('standard','premiere'): SETTINGS['download_mode']='premiere'
         if p.is_absolute() and p.is_dir(): SETTINGS['download_dir'] = str(p)
     except (ValueError, OSError, TypeError): pass
     try:
@@ -309,7 +316,7 @@ def finish_counts(jid):
 
 
 def remember(item):
-    entry = {key: item.get(key) for key in ('id', 'url', 'platform', 'title', 'path', 'file_name', 'size')}
+    entry = {key: item.get(key) for key in ('id', 'url', 'platform', 'title', 'path', 'file_name', 'size', 'download_mode', 'encoder', 'action', 'proxy_path')}
     entry['completed_at'] = datetime.now(timezone.utc).isoformat()
     with LOCK:
         HIST.insert(0, entry)
@@ -321,6 +328,7 @@ def job_copy(job):
     out = copy.deepcopy(job)
     for item in out['items']:
         item.pop('path', None)
+        item.pop('conversion_source',None);item.pop('conversion_hash',None);item.pop('conversion_meta',None)
         item['download_url'] = '/download/' + item['id'] if item['status'] == 'done' else None
     return out
 
@@ -339,7 +347,7 @@ def download_one(jid, ix, url, opts, limiter):
             if browser not in COOKIE_BROWSERS: browser = 'none'
             target = Path(SETTINGS['download_dir'])
             if not target.is_dir(): raise RuntimeError('Selected download folder no longer exists. Choose it again.')
-            item_set(jid, ix, status='analyzing', phase='Reading video details', progress=2)
+            item_set(jid, ix, status='analyzing', phase='Analyzing Media', progress=None)
             try:
                 meta = metadata(url, browser)
             except Exception as exc:
@@ -367,7 +375,7 @@ def download_one(jid, ix, url, opts, limiter):
             report = WORK / f'after-move-{jid}-{ix}-{uuid.uuid4().hex}.txt'
             args = cmd_base(browser) + [
                 '--no-playlist', '--newline', '--progress', '--windows-filenames',
-                '--no-overwrites', '--continue', '--ffmpeg-location', str(TOOLS),
+                '--no-overwrites', '--continue', '--retries', '10', '--fragment-retries', '10', '--retry-sleep', 'exp=1:20', '--ffmpeg-location', str(TOOLS),
                 '--paths', 'home:' + str(target), '--paths', 'temp:' + str(item_temp),
                 '--output', output, '--print', 'after_move:__UVD_DONE__%(filepath)s',
                 '--print-to-file', 'after_move:%(filepath)s', str(report)
@@ -387,7 +395,7 @@ def download_one(jid, ix, url, opts, limiter):
                 suffix = f' - Clip {stamp(start)} to {stamp(end)}'
                 args[args.index('--output') + 1] = output.replace('.%(ext)s', suffix + '.%(ext)s') if suffix not in output else output
             args.append(url)  # Avoid the original no-URL bug.
-            item_set(jid, ix, status='downloading', phase='Downloading source', progress=5)
+            item_set(jid, ix, status='downloading', phase='Downloading Video', progress=0)
             item_log(jid, ix, 'Saving directly to: ' + str(target))
             final_path = None
             rx = re.compile(r'\[download\]\s+(\d+(?:\.\d+)?)%')
@@ -412,15 +420,15 @@ def download_one(jid, ix, url, opts, limiter):
                     if line.startswith('[download]') and '%' in line:
                         m = rx.search(line)
                         if m:
-                            pct = 5 + min(100, float(m.group(1))) * .83
+                            pct = min(100, float(m.group(1)))
                             with LOCK:
                                 item = JOBS[jid]['items'][ix]
-                                if pct > item['progress']: item['progress'] = round(pct, 1)
+                                item.update(progress=round(pct,1),phase='Downloading Video')
                         s = speed_rx.search(line)
                         if s: item_set(jid, ix, speed=s.group(1), eta=s.group(2))
-                    elif 'Merging formats' in line or '[Merger]' in line: item_set(jid, ix, phase='Merging video + audio', progress=92)
-                    elif 'ExtractAudio' in line: item_set(jid, ix, phase='Converting to MP3', progress=94)
-                    elif 'Post-process' in line or 'Fixup' in line: item_set(jid, ix, phase='Finishing file', progress=96)
+                    elif 'Merging formats' in line or '[Merger]' in line: item_set(jid, ix, phase='Merging video + audio', progress=None)
+                    elif 'ExtractAudio' in line: item_set(jid, ix, phase='Converting to MP3', progress=None)
+                    elif 'Post-process' in line or 'Fixup' in line: item_set(jid, ix, phase='Finishing file', progress=None)
                     else: item_log(jid, ix, line)
                 code = process.wait()
                 if process.stdout: process.stdout.close()
@@ -439,24 +447,23 @@ def download_one(jid, ix, url, opts, limiter):
                     retry.append(a)
                 rc, _ = run_dl(retry)
             if rc: raise RuntimeError('Download or FFmpeg processing failed. Open technical details for the exact yt-dlp error.')
-            item_set(jid, ix, phase='Locating finished file', progress=97)
+            item_set(jid, ix, phase='Analyzing Media', progress=None)
             final_path, how = resolve_output(target, report, final_path, before, started, clip_title)
             item_log(jid, ix, 'Final file path (' + how + '): ' + str(final_path))
             # Ensure yt-dlp did not leave the only copy outside the chosen directory.
             if final_path.parent.resolve() != target.resolve():
                 raise RuntimeError('Output was found outside your selected Downloads folder: ' + str(final_path))
-            item_set(jid, ix, phase='Verifying saved media', progress=98)
-            verified = verify_media(final_path, str(opts.get('kind') or 'mp4'), require_audio=bool(meta.get('has_audio')))
-            if start is not None:
-                selected = end-start
-                if verified['duration'] > selected + max(5,selected*.05):
-                    raise RuntimeError('The output duration exceeds the selected clip range. Section extraction may have downloaded the full video.')
-            item_log(jid, ix, f'VERIFIED: {final_path.name} ({verified["size"]} bytes, {verified["duration"]:.2f}s)')
-            data = {'id': uuid.uuid4().hex[:14], 'url': url, 'platform': platform_for(url),
-                    'title': meta['title'], 'path': str(final_path), 'file_name': final_path.name,
-                    'size': final_path.stat().st_size}
-            item_set(jid, ix, **data, status='done', phase='Saved to folder', progress=100, speed='', eta='')
-            remember(data)
+            # A decodable file can still be an incomplete download. Compare it with
+            # independently extracted source/section duration before replacing it.
+            inspected = media_compat.probe(final_path, FFPROBE)
+            expected = (end-start) if start is not None else float(meta.get('duration') or 0)
+            if expected > 0 and not meta.get('is_live'):
+                tolerance = max(.5, expected*.01) if (start is None or opts.get('exact', True)) else max(5,expected*.05)
+                if inspected['duration'] < expected-tolerance:
+                    raise RuntimeError('The downloaded file is shorter than the expected source/section duration. It may be incomplete; retry the download.')
+            item_set(jid,ix,conversion_source=str(final_path),conversion_hash=file_hash(final_path),conversion_meta=meta,
+                     conversion_selected=(end-start) if start is not None else None)
+            process_downloaded(jid,ix,final_path,meta,opts,ev)
             shutil.rmtree(item_temp, ignore_errors=True)
             try: report.unlink(missing_ok=True)
             except OSError: pass
@@ -465,11 +472,75 @@ def download_one(jid, ix, url, opts, limiter):
             else:
                 item_log(jid, ix, 'ERROR: ' + str(exc))
                 LOG.error('Download failed: %s', sanitize_log(str(exc)))
-                item_set(jid, ix, status='error', phase='Failed', error=str(exc))
+                item_set(jid, ix, status='error', phase='Failed', error=str(exc), can_retry_conversion=bool(JOBS[jid]['items'][ix].get('conversion_source')))
         finally:
             if reserved is not None:
                 with LOCK: RESERVED.discard(reserved)
             finish_counts(jid)
+
+
+def file_hash(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda:stream.read(1024*1024),b''):h.update(block)
+    return h.hexdigest()
+
+
+def set_preferences(opts):
+    mode=opts.get('download_mode',SETTINGS.get('download_mode','premiere'))
+    if mode not in ('standard','premiere'):raise ValueError('Unknown download mode.')
+    with LOCK:
+        SETTINGS.update(download_mode=mode,create_proxy=bool(opts.get('create_proxy',SETTINGS.get('create_proxy',False))))
+        save_json(CONFIG,SETTINGS)
+    return {k:SETTINGS[k] for k in ('download_mode','create_proxy')}
+
+
+def process_downloaded(jid,ix,final_path,meta,opts,ev):
+    def progress(phase,percent):
+        names={'Inspecting':'Analyzing Media','Converting':'Converting for Premiere Pro','Verifying':'Verifying Final MP4','Creating editing proxy':'Creating Editing Proxy'}
+        item_set(jid,ix,phase=names.get(phase,phase),progress=round(min(100,max(0,percent)),1),speed='',eta='')
+    item_set(jid,ix,status='downloading',phase='Analyzing Media',progress=None,speed='',eta='',can_retry_conversion=False)
+    if opts.get('kind')=='mp3':
+        verified=verify_media(final_path,'mp3')
+        media_compat.decode(final_path,media_compat.probe(final_path,FFPROBE),FFMPEG,progress,ev,check_vfr=False)
+    else:
+        final_path,verified=media_compat.prepare(final_path,FFMPEG,FFPROBE,require_audio=bool(meta.get('has_audio')),
+             premiere=opts.get('premiere',True) is not False,progress=progress,cancel=ev,
+             telemetry=lambda data:item_set(jid,ix,**data),proxy=opts.get('create_proxy',False) and opts.get('premiere',True) is not False,
+             log=lambda msg:item_log(jid,ix,msg))
+    if ev.is_set():raise RuntimeError('Processing canceled.')
+    selected=JOBS[jid]['items'][ix].get('conversion_selected')
+    if selected and verified['duration']>selected+max(5,selected*.05):raise RuntimeError('Output exceeds selected clip duration.')
+    item_log(jid,ix,f'VERIFIED: {final_path.name} ({verified["size"]} bytes, {verified["duration"]:.2f}s)')
+    data={'id':uuid.uuid4().hex[:14],'url':JOBS[jid]['items'][ix]['url'],'platform':platform_for(JOBS[jid]['items'][ix]['url']),
+          'title':meta['title'],'path':str(final_path),'file_name':final_path.name,'size':final_path.stat().st_size,
+          'download_mode':opts.get('download_mode','premiere'),'encoder':verified.get('encoder','Original streams'),
+          'action':verified.get('action'),'proxy_path':verified.get('proxy_path')}
+    ready='Premiere Pro MP4 — Ready' if opts.get('premiere',True) is not False and opts.get('kind')!='mp3' else 'Ready'
+    item_set(jid,ix,**data,status='done',phase=ready,progress=100,speed='',eta='',processing_speed='',error='',can_retry_conversion=False)
+    remember(data)
+
+
+def retry_conversion(jid,ix):
+    with LOCK:
+        job=JOBS.get(jid)
+        if not job or not isinstance(ix,int) or not 0<=ix<len(job['items']):raise ValueError('Item not found.')
+        item=job['items'][ix]
+        if item['status']!='error' or not item.get('can_retry_conversion'):raise ValueError('No retained source is available for conversion retry.')
+        source=Path(item['conversion_source'])
+        if not source.is_file() or file_hash(source)!=item['conversion_hash']:raise ValueError('The retained source was moved or changed. Retry the download.')
+        item.update(status='queued',phase='Queued conversion retry',progress=None,error='',can_retry_conversion=False)
+        job['status']='running';CANCEL[(jid,ix)]=threading.Event()
+        opts=copy.deepcopy(job['options']);meta=copy.deepcopy(item['conversion_meta'])
+    def worker():
+        ev=CANCEL[(jid,ix)]
+        try:process_downloaded(jid,ix,source,meta,opts,ev)
+        except Exception as exc:
+            item_log(jid,ix,'ERROR: '+str(exc))
+            item_set(jid,ix,status='canceled' if ev.is_set() else 'error',phase='Canceled' if ev.is_set() else 'Failed',error=str(exc),can_retry_conversion=source.is_file())
+        finally:finish_counts(jid)
+    POOL.submit(worker)
+    return jid
 
 
 def stop_proc(proc):
@@ -484,6 +555,11 @@ def stop_proc(proc):
 
 
 def create_batch(urls, opts):
+    opts=copy.deepcopy(opts)
+    mode=opts.get('download_mode') or ('standard' if opts.get('premiere') is False or opts.get('kind')=='mp3' else SETTINGS.get('download_mode','premiere'))
+    prefs=set_preferences({'download_mode':mode,'create_proxy':opts.get('create_proxy',SETTINGS.get('create_proxy',False))})
+    opts.update(prefs);opts['premiere']=mode=='premiere'
+    if opts['premiere']:opts['kind']='mp4'
     jid = uuid.uuid4().hex[:12]
     with LOCK:
         JOBS[jid] = {'id': jid, 'created': time.time(), 'status': 'running', 'progress': 0,
@@ -605,7 +681,7 @@ class H(BaseHTTPRequestHandler):
                               'free_bytes':free, 'log_dir':str(LOG_DIR), 'update_system':'Managed by desktop updater'})
         if path == '/api/state':
             with LOCK:
-                state = {'build': BUILD, 'folder': SETTINGS['download_dir'],
+                state = {'build': BUILD, 'folder': SETTINGS['download_dir'], 'preferences': {k:SETTINGS[k] for k in ('download_mode','create_proxy')},
                          'jobs': [job_copy(x) for x in sorted(JOBS.values(), key=lambda j: j['created'], reverse=True)[:8]],
                          'history': copy.deepcopy(HIST[:120]),
                          'tools': {'yt_dlp': YTDLP.is_file(), 'ffmpeg': FFMPEG.is_file(), 'deno': DENO.is_file()}}
@@ -652,6 +728,12 @@ class H(BaseHTTPRequestHandler):
                 meta['platform'] = platform_for(url)
                 return self.data(meta)
             except Exception as ex: return self.data({'error': str(ex)[:1200]}, 400)
+        if path == '/api/preferences':
+            try:return self.data(set_preferences(d))
+            except (ValueError,OSError) as exc:return self.data({'error':str(exc)},400)
+        if path == '/api/retry-conversion':
+            try:return self.data({'job_id':retry_conversion(d.get('job_id'),d.get('index'))})
+            except (ValueError,OSError) as exc:return self.data({'error':str(exc)},400)
         if path == '/api/start':
             raw = d.get('urls') if isinstance(d.get('urls'), list) else []
             urls = list(dict.fromkeys(str(x).strip() for x in raw[:60] if valid_url(x)))

@@ -8,13 +8,14 @@ const net = require('node:net');
 const http = require('node:http');
 const os = require('node:os');
 const {isValidUpdateFeed, safeReport, readJSON, writeAtomic} = require('./update-utils.cjs');
-const {autoUpdater} = require('electron-updater');
+const {PatchUpdater} = require('./patch-updater.cjs');
 
 app.setAppUserModelId('com.framegrab.desktop');
-const persistentPath = path.join(app.getPath('appData'), 'FrameGrab');
+const persistentPath = process.env.FRAMEGRAB_QA==='1' && process.env.FRAMEGRAB_QA_DATA ? path.resolve(process.env.FRAMEGRAB_QA_DATA) : path.join(app.getPath('appData'), 'FrameGrab');
 fs.mkdirSync(persistentPath,{recursive:true});
 app.setPath('userData', persistentPath);
 const dataDir = app.getPath('userData');
+const autoUpdater = new PatchUpdater({app,dataDir,allowLocal:process.env.FRAMEGRAB_ALLOW_LOCAL_UPDATE_TEST==='1'});
 const logDir = path.join(dataDir, 'logs');
 const sessionKey = crypto.randomBytes(32).toString('hex');
 const updateCfg = path.join(dataDir, 'update-source.json');
@@ -132,7 +133,7 @@ function setupUpdater() {
     setFeed(feed);
     if(app.isPackaged) {
       setTimeout(()=>autoUpdater.checkForUpdates().catch(e=>log('Update check: '+e.message)),15000).unref();
-      setInterval(()=>autoUpdater.checkForUpdates().catch(e=>log('Update check: '+e.message)),6*60*60*1000).unref();
+      
     }
   }
 }

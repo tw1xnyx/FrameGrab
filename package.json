@@ -1,7 +1,7 @@
 {
   "name": "framegrab-desktop",
   "productName": "FrameGrab",
-  "version": "8.0.0",
+  "version": "8.2.0",
   "description": "Native Windows video downloader with an internally managed local media engine",
   "main": "desktop/main.cjs",
   "author": "FrameGrab",

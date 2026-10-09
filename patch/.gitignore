@@ -1,0 +1,5 @@
+build/
+asar-stage/
+publisher-private.*
+*.pfx
+*.p12

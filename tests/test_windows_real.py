@@ -1,8 +1,10 @@
 """Real Windows pipeline verification with bundled tools and owned synthetic media."""
 import functools, importlib.util, json, os, subprocess, threading, time, unittest, urllib.request
+import sys
 from pathlib import Path
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/'service'))
 QA=ROOT/'.qa'
 QA.mkdir(exist_ok=True)
 os.environ['FRAMEGRAB_DATA_DIR']=str(QA/'data')
