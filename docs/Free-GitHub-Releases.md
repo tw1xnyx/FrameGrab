@@ -44,5 +44,5 @@ An Authenticode signing certificate was not available. The bootstrap payload has
 
 ## Deployment status
 
-Windows build and local bootstrap tests are verified. The public repository returned Not Found at the last check. No live public release or end-to-end public online installation has been verified until account setup is completed.
+FrameGrab 8.3.0 is published at https://github.com/tw1xnyx/FrameGrab-Updates/releases/tag/v8.3.0. Private-source Windows CI run 38010929841 passed build, download tests, installation to a path with spaces, launch/backend readiness, in-place reinstall, data preservation and checksum verification. Publication run 38011229173 verified the restricted publishing credential and uploaded only binary assets. A real Electron Updater transport detected 8.3.0, downloaded the published 196,971,058-byte installer with progress reaching 100%, and verified SHA512 and SHA256. It used a full fallback because no 8.2 blockmap is published. The patched packaged 8.3 app also reached the public feed through its native Check for Updates interface and reported current version. Actual new-version in-app restart/install and differential bytes saved remain unverified.
 
