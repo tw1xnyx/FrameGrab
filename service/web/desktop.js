@@ -10,7 +10,7 @@
   .replace(/(cookie\s*[:=]\s*)[^\r\n]+/ig,'$1[REDACTED]')
   .replace(/([?&](?:token|auth|password|api_key|signature|sig|access_token)=)[^&\s]+/ig,'$1[REDACTED]');
  const showError = (operation, simple, technical='') => {
-   const body = [`FrameGrab v${native ? '8.0.0' : 'web'}`,`Time: ${new Date().toISOString()}`,
+   const body = [`FrameGrab v${native ? '8.3.0' : 'web'}`,`Time: ${new Date().toISOString()}`,
        `Operation: ${operation}`,`Error: ${simple}`,`Technical details: ${technical}`].join('\n');
    errorData = redact(body);
    $('errorSummary').textContent = simple || 'The operation could not be completed';
@@ -39,15 +39,17 @@
  document.documentElement.classList.add('native-desktop');
  let lastUpdate={};
  const applyUpdate = state => {
+   if(state.status!==lastUpdate.status&&['available','downloaded'].includes(state.status))window.dispatchEvent(new CustomEvent('framegrab-toast',{detail:state.status==='available'?'Update available: '+state.available:'Update downloaded - ready to install'}));
    lastUpdate=state;
    $('updateStatus').textContent=(state.status||'unconfigured').replace(/-/g,' ');
    $('downloadUpdate').disabled=state.status!=='available';
    $('installUpdate').disabled=state.status!=='downloaded';
+   $('updateProgress').hidden=state.status!=='downloading';$('updateProgress').value=state.progress||0;
    $('updateDetails').textContent=[state.available && ('Available: '+state.available),
      state.progress && ('Download: '+Math.round(state.progress)+'%'),
      state.releaseNotes, state.error].filter(Boolean).join(' · ');
  };
- native.version().then(info=>{$('desktopVersion').textContent=info.version+(info.isPackaged?' · Installed':' · Development');});
+ native.version().then(info=>{if(info.justUpdated)window.dispatchEvent(new CustomEvent('framegrab-toast',{detail:'FrameGrab updated to '+info.version}));$('desktopVersion').textContent=info.version+(info.isPackaged?' · Installed':' · Development');});
  native.updateStatus().then(state=>{$('updateFeed').value=state.feed||'';applyUpdate(state);});
  native.onUpdate(applyUpdate);
  $('saveUpdateFeed').onclick=async()=>{
@@ -59,7 +61,7 @@
    catch(e){showError('Check for Updates',e.message);}
  };
  $('downloadUpdate').onclick=async()=>{
-   try {applyUpdate(await native.updateDownload());}
+   try {applyUpdate(await native.updateDownload());await native.updateInstall();}
    catch(e){showError('Download update',e.message);}
  };
  $('installUpdate').onclick=async()=>{

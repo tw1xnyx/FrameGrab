@@ -1,0 +1,93 @@
+name: FrameGrab verified GitHub Releases
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish verified binaries to the public update repository
+        type: boolean
+        default: false
+  push:
+    tags: ['v*']
+    branches: [main]
+    paths: ['.github/workflows/online-release.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: framegrab-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check version and publishing access before building
+        shell: pwsh
+        env:
+          RELEASE_PUBLISH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+          DO_PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.publish == true }}
+        run: |
+          $version=(Get-Content package.json -Raw | ConvertFrom-Json).version
+          if($env:GITHUB_REF -like 'refs/tags/v*' -and $env:GITHUB_REF -ne "refs/tags/v$version"){throw 'Version tag and package.json version differ'}
+          if($env:DO_PUBLISH -eq 'true'){
+            if(!$env:RELEASE_PUBLISH_TOKEN){throw 'Set RELEASE_PUBLISH_TOKEN: fine-grained token restricted to public tw1xnyx/FrameGrab-Updates with Contents read/write'}
+            $env:GH_TOKEN=$env:RELEASE_PUBLISH_TOKEN
+            $repo=gh api repos/tw1xnyx/FrameGrab-Updates | ConvertFrom-Json
+            if($repo.private){throw 'Update repository must be public; never publish source to it'}
+          }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            tools
+            runtime
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: framegrab-windows-components-${{ hashFiles('scripts/Build-Windows.ps1') }}
+      - name: Build existing Electron application
+        shell: pwsh
+        run: ./scripts/Build-Windows.ps1
+      - name: Test updater transport and existing functionality
+        shell: pwsh
+        run: |
+          node --test tests-desktop/*.test.cjs
+          if($LASTEXITCODE -ne 0){throw 'Desktop tests failed'}
+          python tests/test_windows_real.py
+          if($LASTEXITCODE -ne 0){throw 'Downloader tests failed'}
+      - name: Verify NSIS install, launch and preservation
+        shell: pwsh
+        run: ./scripts/Verify-Windows-Install.ps1
+      - name: Verify metadata and SHA256 checksums
+        run: node scripts/verify-release.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FrameGrab-Windows-x64-${{ github.sha }}
+          compression-level: 0
+          retention-days: 7
+          path: |
+            dist/FrameGrab_Setup_*.exe
+            dist/*.blockmap
+            dist/latest.yml
+            dist/SHA256SUMS.txt
+      - name: Publish distribution files only
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.publish == true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+        run: |
+          $version=(Get-Content package.json -Raw | ConvertFrom-Json).version
+          $assets=@(Get-ChildItem dist -File | Where-Object { $_.Name -like 'FrameGrab_Setup_*.exe' -or $_.Extension -eq '.blockmap' -or $_.Name -in @('latest.yml','SHA256SUMS.txt') } | ForEach-Object FullName)
+          if($assets.Count -lt 4){throw 'Required verified distribution assets missing'}
+          $notes="docs/Release_$version.md"
+          if(!(Test-Path $notes)){throw 'Release notes missing'}
+          gh release create "v$version" --repo tw1xnyx/FrameGrab-Updates --title "FrameGrab $version" --notes-file $notes --draft @assets
+          if($LASTEXITCODE -ne 0){throw 'Draft binary release upload failed'}
+          gh release edit "v$version" --repo tw1xnyx/FrameGrab-Updates --draft=false --latest
+          if($LASTEXITCODE -ne 0){throw 'Verified draft could not be published'}

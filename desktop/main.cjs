@@ -8,14 +8,15 @@ const net = require('node:net');
 const http = require('node:http');
 const os = require('node:os');
 const {isValidUpdateFeed, safeReport, readJSON, writeAtomic} = require('./update-utils.cjs');
-const {PatchUpdater} = require('./patch-updater.cjs');
+const {ReleaseUpdater} = require('./release-updater.cjs');
+const BUILTIN_UPDATE_FEED='https://github.com/tw1xnyx/FrameGrab-Updates/releases';
 
 app.setAppUserModelId('com.framegrab.desktop');
 const persistentPath = process.env.FRAMEGRAB_QA==='1' && process.env.FRAMEGRAB_QA_DATA ? path.resolve(process.env.FRAMEGRAB_QA_DATA) : path.join(app.getPath('appData'), 'FrameGrab');
 fs.mkdirSync(persistentPath,{recursive:true});
 app.setPath('userData', persistentPath);
 const dataDir = app.getPath('userData');
-const autoUpdater = new PatchUpdater({app,dataDir,allowLocal:process.env.FRAMEGRAB_ALLOW_LOCAL_UPDATE_TEST==='1'});
+const autoUpdater = new ReleaseUpdater({app,dataDir,allowLocal:process.env.FRAMEGRAB_ALLOW_LOCAL_UPDATE_TEST==='1'});
 const logDir = path.join(dataDir, 'logs');
 const sessionKey = crypto.randomBytes(32).toString('hex');
 const updateCfg = path.join(dataDir, 'update-source.json');
@@ -128,22 +129,25 @@ function setupUpdater() {
   autoUpdater.on('download-progress',p=>emitUpdate({status:'downloading',progress:p.percent||0,bytesPerSecond:p.bytesPerSecond,transferred:p.transferred,total:p.total}));
   autoUpdater.on('update-downloaded',info=>emitUpdate({status:'downloaded',available:info.version,progress:100}));
   autoUpdater.on('error',err=>{log('Update error: '+err.message);emitUpdate({status:'error',error:safeReport(err.message)});});
-  const feed=readJSON(updateCfg).url || '';
+  const saved=readJSON(updateCfg).url;const feed=(saved&&!saved.includes('example.invalid')&&!saved.includes('tw1xnyx.github.io'))?saved:BUILTIN_UPDATE_FEED;
   if(isValidUpdateFeed(feed,allowLocalUpdates)) {
     setFeed(feed);
     if(app.isPackaged) {
       setTimeout(()=>autoUpdater.checkForUpdates().catch(e=>log('Update check: '+e.message)),15000).unref();
+      setInterval(()=>autoUpdater.checkForUpdates().catch(e=>log('Update check: '+e.message)),6*60*60*1000).unref();
       
     }
   }
 }
 function setFeed(url) {
   if(!isValidUpdateFeed(url,allowLocalUpdates)) throw new Error('Use an HTTPS update URL (or localhost only in development).');
-  autoUpdater.setFeedURL({provider:'generic',url:url.replace(/\/$/,'')});
+  autoUpdater.setFeedURL(url===BUILTIN_UPDATE_FEED?{provider:'github'}:{provider:'generic',url:url.replace(/\/$/,'')});
   emitUpdate({status:'configured',feed:url});
 }
 async function installUpdate() {
   if(updateState.status!=='downloaded') throw new Error('No downloaded verified update is ready.');
+  const current=JSON.parse(await engineGet('/api/state'));if(current.jobs.some(j=>j.items.some(i=>['queued','analyzing','downloading','paused'].includes(i.status))))throw Error('Finish or cancel active downloads before installing an update.');
+  writeAtomic(path.join(dataDir,'pending-update.json'),{version:updateState.available});
   quitting=true;
   await stopEngineForUpdate();
   autoUpdater.quitAndInstall(false,true);
@@ -175,46 +179,55 @@ function createWindow() {
   mainWindow.loadURL(`http://127.0.0.1:${servicePort}/`);
 }
 function setupIpc() {
+  const handle=(name,fn)=>ipcMain.handle(name,(event,...args)=>{if(!mainWindow||event.sender!==mainWindow.webContents||event.senderFrame!==mainWindow.webContents.mainFrame)throw Error('Untrusted application frame');return fn(event,...args);});
   ipcMain.on('framegrab:session-token',(event)=>{
     if(mainWindow && event.sender===mainWindow.webContents) event.returnValue=sessionKey;
     else event.returnValue='';
   });
-  ipcMain.handle('framegrab:version',()=>({version:app.getVersion(),isPackaged:app.isPackaged,platform:process.platform}));
-  ipcMain.handle('framegrab:choose-folder',async()=>{
-    const d=await dialog.showOpenDialog(mainWindow,{title:'Choose destination for all videos',properties:['openDirectory','createDirectory']});
+  handle('framegrab:appearance-load',()=>readJSON(path.join(dataDir,'appearance.json'),{}));
+  handle('framegrab:appearance-save',(_event,value)=>{
+    const out={};const choices={palette:['clean','red','navy','graphite','emerald','purple','sand'],theme:['light','dark','system'],preset:['aurora','silk','lagoon']};
+    for(const [k,list] of Object.entries(choices))if(list.includes(value?.[k]))out[k]=value[k];
+    for(const k of ['motion','optics','thumbs'])if(typeof value?.[k]==='boolean')out[k]=value[k];
+    if(Number.isFinite(value?.intensity))out.intensity=Math.max(0,Math.min(100,value.intensity));
+    writeAtomic(path.join(dataDir,'appearance.json'),out);return out;
+  });
+  handle('framegrab:version',()=>{const marker=path.join(dataDir,'pending-update.json');const justUpdated=readJSON(marker,{}).version===app.getVersion();if(justUpdated)fs.unlinkSync(marker);return {version:app.getVersion(),justUpdated,isPackaged:app.isPackaged,platform:process.platform};});
+  handle('framegrab:choose-folder',async()=>{
+    const d=await dialog.showOpenDialog(mainWindow,{title:'Choose download destination',properties:['openDirectory','createDirectory']});
     return d.canceled ? null : d.filePaths[0];
   });
-  ipcMain.handle('framegrab:open-folder',async()=>{const info=JSON.parse(await engineGet('/api/state'));return shell.openPath(info.folder);});
-  ipcMain.handle('framegrab:reveal-file',async(_event,p)=>{
+  handle('framegrab:open-folder',async()=>{const info=JSON.parse(await engineGet('/api/state'));return shell.openPath(info.folder);});
+  handle('framegrab:reveal-file',async(_event,p)=>{
     if(typeof p!=='string'||!path.isAbsolute(p)) throw new Error('Invalid file path');
     if(!fs.existsSync(p)) throw new Error('File no longer exists');
     shell.showItemInFolder(p);
     return true;
   });
-  ipcMain.handle('framegrab:clipboard-read',()=>clipboard.readText().slice(0,150000));
-  ipcMain.handle('framegrab:clipboard-write',(_event,value)=>{clipboard.writeText(String(value));return true;});
-  ipcMain.handle('framegrab:update-status',()=>({...updateState,feed:readJSON(updateCfg).url||'',isPackaged:app.isPackaged}));
-  ipcMain.handle('framegrab:update-set-feed',(_event,url)=>{
+  handle('framegrab:clipboard-read',()=>clipboard.readText().slice(0,150000));
+  handle('framegrab:clipboard-write',(_event,value)=>{clipboard.writeText(String(value));return true;});
+  handle('framegrab:update-status',()=>({...updateState,feed:readJSON(updateCfg).url||BUILTIN_UPDATE_FEED,isPackaged:app.isPackaged}));
+  handle('framegrab:update-set-feed',(_event,url)=>{
     if(!isValidUpdateFeed(url,allowLocalUpdates)) throw new Error('A secure HTTPS update hosting URL is required.');
     setFeed(url);
     writeAtomic(updateCfg,{url});
     return updateState;
   });
-  ipcMain.handle('framegrab:update-check',async()=>{
+  handle('framegrab:update-check',async()=>{
     if(!app.isPackaged) throw new Error('Update checking must run in an installed application. Build and install a Windows release to test it.');
-    if(!readJSON(updateCfg).url) throw new Error('No update source configured. Enter your HTTPS release feed URL in Settings.');
+
     await autoUpdater.checkForUpdates();
     return updateState;
   });
-  ipcMain.handle('framegrab:update-download',async()=>{
+  handle('framegrab:update-download',async()=>{
     if(updateState.status!=='available') throw new Error('No available update to download.');
     await autoUpdater.downloadUpdate();
     return updateState;
   });
-  ipcMain.handle('framegrab:update-install',()=>installUpdate());
-  ipcMain.handle('framegrab:diagnostics',async()=>({desktop:app.getVersion(),os:`${os.type()} ${os.release()}`,arch:os.arch(),
+  handle('framegrab:update-install',()=>installUpdate());
+  handle('framegrab:diagnostics',async()=>({desktop:app.getVersion(),os:`${os.type()} ${os.release()}`,arch:os.arch(),
     appData:dataDir,logs:logDir,resources:roots(),update:updateState,engineReady:!!(engine&&engine.exitCode===null)}));
-  ipcMain.handle('framegrab:open-logs',()=>shell.openPath(logDir));
+  handle('framegrab:open-logs',()=>shell.openPath(logDir));
 }
 app.whenReady().then(async()=>{
   try {

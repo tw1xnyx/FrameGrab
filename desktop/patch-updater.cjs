@@ -11,7 +11,7 @@ function verifyFeed(envelope,currentVersion,allowLocal=false){
  if(!crypto.verify('RSA-SHA256',bytes,publicKey,Buffer.from(envelope.signature,'base64')))throw Error('Update publisher signature is invalid');
  const info=JSON.parse(bytes.toString('utf8'));const u=new URL(info.url);
  if(u.username||u.password||u.hash||!(u.protocol==='https:'||(allowLocal&&u.protocol==='http:'&&['localhost','127.0.0.1'].includes(u.hostname))))throw Error('Update download requires HTTPS');
- if(info.schema!==1||!Number.isSafeInteger(info.size)||info.size<1024||info.size>50*1024*1024||!/^[a-f0-9]{64}$/.test(info.sha256))throw Error('Invalid incremental package metadata');
+ if(info.schema!==1||!Number.isSafeInteger(info.size)||info.size<1024||info.size>(info.kind==='nsis'?1024:50)*1024*1024||!/^[a-f0-9]{64}$/.test(info.sha256))throw Error('Invalid incremental package metadata');
  if(!Number.isFinite(Date.parse(info.expires))||Date.parse(info.expires)<Date.now())throw Error('Update manifest has expired');
  version(info.version);version(info.minVersion);
  if(compare(currentVersion,info.minVersion)<0)throw Error('This patch requires FrameGrab '+info.minVersion+' or newer');

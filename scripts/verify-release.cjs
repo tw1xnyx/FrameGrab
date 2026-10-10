@@ -1,0 +1,10 @@
+'use strict';
+const fs=require('fs'),path=require('path'),crypto=require('crypto'),assert=require('assert'),yaml=require('js-yaml');
+const root=path.resolve(__dirname,'..'),dist=path.join(root,'dist'),pkg=require('../package.json');
+const info=yaml.load(fs.readFileSync(path.join(dist,'latest.yml'),'utf8'));
+assert.equal(info.version,pkg.version);assert(info.files?.length===1,'Exactly one NSIS installer is expected');
+const item=info.files[0],name=item.url;assert(/^FrameGrab_Setup_[\d.]+\.exe$/.test(name),'Unsafe/non-distribution installer reference');
+const file=path.join(dist,name),bytes=fs.readFileSync(file);assert.equal(bytes.subarray(0,2).toString(),'MZ');assert.equal(bytes.length,item.size);assert.equal(crypto.createHash('sha512').update(bytes).digest('base64'),item.sha512);assert(fs.statSync(file+'.blockmap').size>0);
+const assets=fs.readdirSync(dist).filter(n=>n===name||n===name+'.blockmap'||n==='latest.yml');
+fs.writeFileSync(path.join(dist,'SHA256SUMS.txt'),assets.map(n=>crypto.createHash('sha256').update(fs.readFileSync(path.join(dist,n))).digest('hex')+'  '+n).join('\n')+'\n');
+console.log('PASS installer signature header, version, referenced filename, size, SHA512, blockmap and SHA256 manifest');

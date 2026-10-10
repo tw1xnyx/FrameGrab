@@ -1,0 +1,17 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('fs'),path=require('path'),http=require('http'),crypto=require('crypto');
+const {NsisUpdater}=require('electron-updater');const {NodeHttpExecutor}=require('builder-util/out/nodeHttpExecutor');const {ReleaseUpdater,PROVIDER}=require('../desktop/release-updater.cjs');
+const {EventEmitter}=require('events');
+NodeHttpExecutor.prototype.download=require('electron-updater/out/electronHttpExecutor').ElectronHttpExecutor.prototype.download;
+test('built-in public GitHub provider and explicit install controls',async()=>{class Engine extends EventEmitter{setFeedURL(p){this.provider=p;}async checkForUpdates(){this.emit('update-available',{version:'8.4.0'});}async downloadUpdate(){this.emit('download-progress',{percent:50});return ['verified.exe'];}quitAndInstall(a,b){this.install=[a,b];}}
+ const e=new Engine(),u=new ReleaseUpdater({engine:e});let seen=false;u.on('update-available',()=>seen=true);assert.equal(e.provider.repo,'FrameGrab-Updates');assert.equal(e.provider.private,false);assert.equal(e.autoDownload,false);assert.equal(e.autoInstallOnAppQuit,false);assert.equal(e.disableDifferentialDownload,false);await u.checkForUpdates();assert(seen);await u.downloadUpdate();assert.equal(e.install,undefined);u.quitAndInstall();assert.deepEqual(e.install,[false,true]);
+});
+test('real electron-updater transport detects version, downloads bytes, rejects corrupt and offline feeds',async()=>{
+ const root=path.join(__dirname,'../.qa-nsis-transport');fs.mkdirSync(root,{recursive:true});const bytes=crypto.randomBytes(1024*1024),sum=crypto.createHash('sha512').update(bytes).digest('base64');let corrupt=false,offline=false;
+ const server=http.createServer((req,res)=>{if(offline){res.statusCode=503;return res.end('offline');}if(req.url.includes('latest.yml'))return res.end(`version: 8.4.0\nfiles:\n  - url: fixture-8.4.0.exe\n    sha512: ${sum}\n    size: ${bytes.length}\npath: fixture-8.4.0.exe\nsha512: ${sum}\n`);res.setHeader('Content-Length',bytes.length);res.end(corrupt?Buffer.alloc(bytes.length):bytes);});await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
+ function updater(tag){const dir=path.join(root,tag);fs.mkdirSync(dir,{recursive:true});const config=path.join(dir,'app-update.yml');fs.writeFileSync(config,'provider: generic\nurl: http://127.0.0.1:'+server.address().port+'\nupdaterCacheDirName: cache\n');const app={name:'FrameGrab',version:'8.3.0',isPackaged:true,userDataPath:dir,baseCachePath:dir,appUpdateConfigPath:config,whenReady:async()=>{},onQuit:()=>{},quit:()=>{}};
+ const n=new NsisUpdater({provider:'generic',url:'http://127.0.0.1:'+server.address().port,useMultipleRangeRequest:false},app);n.httpExecutor=new NodeHttpExecutor();n.setFeedURL({provider:"generic",url:"http://127.0.0.1:"+server.address().port,useMultipleRangeRequest:false});n.autoDownload=false;n.autoInstallOnAppQuit=false;n.disableDifferentialDownload=true;n.logger={info(){},warn(){},error(){},debug(){}};return n;}
+ try{const n=updater('good');let progress=0;n.on('download-progress',p=>{progress=p.percent;});const result=await n.checkForUpdates();assert.equal(result.updateInfo.version,'8.4.0');const files=await n.downloadUpdate();assert.deepEqual(fs.readFileSync(files[0]),bytes);assert(progress>0);
+ corrupt=true;const bad=updater('bad');await bad.checkForUpdates();await assert.rejects(bad.downloadUpdate(),/sha512|checksum|digest/i);offline=true;await assert.rejects(updater('offline').checkForUpdates(),/503|HttpError/);
+ }finally{server.close();}
+});

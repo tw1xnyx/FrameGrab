@@ -3,6 +3,8 @@ const {contextBridge, ipcRenderer} = require('electron');
 const sessionToken = ipcRenderer.sendSync('framegrab:session-token');
 contextBridge.exposeInMainWorld('framegrabNative', Object.freeze({
   sessionToken,
+  appearanceLoad:()=>ipcRenderer.invoke('framegrab:appearance-load'),
+  appearanceSave:prefs=>ipcRenderer.invoke('framegrab:appearance-save',prefs),
   version: () => ipcRenderer.invoke('framegrab:version'),
   chooseFolder: () => ipcRenderer.invoke('framegrab:choose-folder'),
   openFolder: () => ipcRenderer.invoke('framegrab:open-folder'),

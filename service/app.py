@@ -37,7 +37,7 @@ LOG_DIR = APP_DATA / 'logs'
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG = APP_DATA / 'settings.json'
 HISTORY = APP_DATA / 'history.json'
-BUILD = '8.2.0'
+BUILD = '8.3.0'
 DEFAULT_PORT = int(os.environ.get('FRAMEGRAB_SERVICE_PORT', '8181'))
 SESSION_TOKEN = os.environ.get('FRAMEGRAB_API_TOKEN', '')
 PARENT_PID = int(os.environ.get('FRAMEGRAB_PARENT_PID', '0'))
@@ -62,6 +62,7 @@ LOCK = threading.RLock()
 JOBS = {}
 PROCESSES = {}
 CANCEL = {}
+PAUSE = set()
 RESERVED = set()
 SETTINGS = {'download_dir': str(DEFAULT_FOLDER), 'download_mode': 'premiere', 'create_proxy': False}
 HIST = []
@@ -81,7 +82,7 @@ def load_state():
         p = Path(s.get('download_dir', ''))
         if isinstance(s,dict): SETTINGS.update({k:v for k,v in s.items() if k!='download_dir'})
         if SETTINGS.get('download_mode') not in ('standard','premiere'): SETTINGS['download_mode']='premiere'
-        if p.is_absolute() and p.is_dir(): SETTINGS['download_dir'] = str(p)
+        if p.is_absolute(): SETTINGS['download_dir'] = str(p)
     except (ValueError, OSError, TypeError): pass
     try:
         data = json.loads(HISTORY.read_text(encoding='utf-8'))
@@ -336,16 +337,16 @@ def job_copy(job):
 def download_one(jid, ix, url, opts, limiter):
     key = (jid, ix)
     ev = CANCEL[key]
-    if ev.is_set(): item_set(jid, ix, status='canceled', phase='Canceled'); finish_counts(jid); return
+    if ev.is_set(): item_set(jid, ix, status='paused' if key in PAUSE else 'canceled', phase='Paused - resume when ready' if key in PAUSE else 'Canceled'); finish_counts(jid); return
     with limiter:
         reserved = None
         item_temp = WORK / f'{jid}-{ix}'
         item_temp.mkdir(parents=True, exist_ok=True)
         try:
-            if ev.is_set(): item_set(jid, ix, status='canceled', phase='Canceled'); return
+            if ev.is_set(): item_set(jid, ix, status='paused' if key in PAUSE else 'canceled', phase='Paused - resume when ready' if key in PAUSE else 'Canceled'); return
             browser = str(opts.get('browser', 'none')).lower()
             if browser not in COOKIE_BROWSERS: browser = 'none'
-            target = Path(SETTINGS['download_dir'])
+            target = validate_destination(opts['destination'])
             if not target.is_dir(): raise RuntimeError('Selected download folder no longer exists. Choose it again.')
             item_set(jid, ix, status='analyzing', phase='Analyzing Media', progress=None)
             try:
@@ -356,8 +357,9 @@ def download_one(jid, ix, url, opts, limiter):
                     browser = 'none'
                     meta = metadata(url, browser)
                 else: raise
-            item_set(jid, ix, title=meta['title'], uploader=meta['uploader'], thumbnail=meta['thumbnail'], duration=meta['duration'], width=meta.get('width'), height=meta.get('height'), estimated_size=meta.get('estimated_size'))
-            if ev.is_set(): item_set(jid, ix, status='canceled', phase='Canceled'); return
+            validate_destination(target, max(64*1024*1024,int(meta.get('estimated_size') or 0)*(3 if opts.get('premiere') else 1)))
+            item_set(jid, ix, destination=str(target), title=meta['title'], uploader=meta['uploader'], thumbnail=meta['thumbnail'], duration=meta['duration'], width=meta.get('width'), height=meta.get('height'), estimated_size=meta.get('estimated_size'))
+            if ev.is_set(): item_set(jid, ix, status='paused' if key in PAUSE else 'canceled', phase='Paused - resume when ready' if key in PAUSE else 'Canceled'); return
             start, end = (parse_time(opts.get('start')), parse_time(opts.get('end'))) if opts.get('clip') else (None, None)
             if opts.get('clip'):
                 if meta['is_live']: raise RuntimeError('Time range download is not supported for an active live stream.')
@@ -436,7 +438,7 @@ def download_one(jid, ix, url, opts, limiter):
                 return code, seen_cookie_err
 
             rc, cookie_problem = run_dl(args)
-            if ev.is_set(): item_set(jid, ix, status='canceled', phase='Canceled'); return
+            if ev.is_set(): item_set(jid, ix, status='paused' if key in PAUSE else 'canceled', phase='Paused - resume when ready' if key in PAUSE else 'Canceled'); return
             if rc and cookie_problem and browser != 'none':
                 item_log(jid, ix, 'Chrome cookie database locked. Automatically retrying as a public link.')
                 retry = []
@@ -468,7 +470,7 @@ def download_one(jid, ix, url, opts, limiter):
             try: report.unlink(missing_ok=True)
             except OSError: pass
         except Exception as exc:
-            if ev.is_set(): item_set(jid, ix, status='canceled', phase='Canceled')
+            if ev.is_set(): item_set(jid, ix, status='paused' if key in PAUSE else 'canceled', phase='Paused - resume when ready' if key in PAUSE else 'Canceled')
             else:
                 item_log(jid, ix, 'ERROR: ' + str(exc))
                 LOG.error('Download failed: %s', sanitize_log(str(exc)))
@@ -556,6 +558,7 @@ def stop_proc(proc):
 
 def create_batch(urls, opts):
     opts=copy.deepcopy(opts)
+    opts['destination']=str(validate_destination(opts.get('destination') or SETTINGS['download_dir']))
     mode=opts.get('download_mode') or ('standard' if opts.get('premiere') is False or opts.get('kind')=='mp3' else SETTINGS.get('download_mode','premiere'))
     prefs=set_preferences({'download_mode':mode,'create_proxy':opts.get('create_proxy',SETTINGS.get('create_proxy',False))})
     opts.update(prefs);opts['premiere']=mode=='premiere'
@@ -565,7 +568,7 @@ def create_batch(urls, opts):
         JOBS[jid] = {'id': jid, 'created': time.time(), 'status': 'running', 'progress': 0,
                      'options': copy.deepcopy(opts), 'total': len(urls), 'done': 0, 'failed': 0, 'skipped': 0, 'canceled': 0,
                      'items': [{'index': i, 'url': url, 'platform': platform_for(url),
-                                'title': 'Waiting in queue', 'status': 'queued', 'phase': 'Queued',
+                                'title': 'Waiting in queue', 'status': 'queued', 'destination': opts['destination'], 'phase': 'Queued',
                                 'progress': 0, 'logs': [], 'id': ''} for i, url in enumerate(urls)]}
         for i in range(len(urls)): CANCEL[(jid, i)] = threading.Event()
     n = max(1, min(3, int(opts.get('parallel') or 2)))
@@ -596,14 +599,45 @@ if($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){Write-Outpu
     return result[-1].strip()
 
 
+def validate_destination(path,required_bytes=64*1024*1024):
+    p=Path(str(path or '')).expanduser()
+    if not p.is_absolute() or not p.is_dir():raise ValueError('The selected destination is unavailable. Choose an existing absolute folder; no fallback folder will be used.')
+    test=p/('.framegrab-writecheck-'+uuid.uuid4().hex)
+    try:
+        with test.open('xb') as f:f.write(b'FrameGrab destination check')
+    except OSError as exc:raise ValueError('The selected destination is not writable: '+str(exc)) from exc
+    finally:
+        if test.exists():test.unlink()
+    free=shutil.disk_usage(p).free
+    if free<required_bytes:raise ValueError('Insufficient free disk space in the selected destination. Required at least '+str(round(required_bytes/1024/1024))+' MB; available '+str(round(free/1024/1024))+' MB.')
+    return p.resolve()
+
+
 def set_folder(path):
-    p = Path(str(path or '')).expanduser()
-    if not p.is_absolute() or not p.is_dir(): raise ValueError('Choose an existing, absolute folder path.')
-    if not os.access(str(p), os.W_OK): raise ValueError('The selected folder is not writable.')
+    p=validate_destination(path)
     with LOCK:
-        SETTINGS['download_dir'] = str(p.resolve())
-        save_json(CONFIG, SETTINGS)
+        SETTINGS['download_dir']=str(p)
+        save_json(CONFIG,SETTINGS)
     return SETTINGS['download_dir']
+
+
+def pause_download(jid,ix):
+    with LOCK:
+        if (jid,ix) not in PROCESSES:raise ValueError('Only active downloading can be paused; merging/conversion cannot be paused.')
+        item=JOBS[jid]['items'][ix]
+        if item['phase']!='Downloading Video':raise ValueError('This stage cannot be paused.')
+        PAUSE.add((jid,ix));CANCEL[(jid,ix)].set();proc=PROCESSES[(jid,ix)]
+    stop_proc(proc)
+
+
+def resume_download(jid,ix):
+    with LOCK:
+        job=JOBS.get(jid)
+        if not job or not isinstance(ix,int) or not 0<=ix<len(job['items']) or job['items'][ix]['status']!='paused':raise ValueError('This download is not paused.')
+        PAUSE.discard((jid,ix));CANCEL[(jid,ix)]=threading.Event();job['status']='running'
+        item=job['items'][ix];item.update(status='queued',phase='Resuming source download',error='')
+        opts=copy.deepcopy(job['options']);url=item['url']
+    POOL.submit(download_one,jid,ix,url,opts,threading.Semaphore(1))
 
 
 def reveal_file(path):
@@ -658,6 +692,8 @@ class H(BaseHTTPRequestHandler):
             return self.data({'error': 'Unauthorized local request'}, 403)
 
         if path == '/': return self.static('index.html', 'text/html; charset=utf-8')
+        if path == '/themes.js': return self.static('themes.js','text/javascript; charset=utf-8')
+        if path == '/premium.css': return self.static('premium.css','text/css; charset=utf-8')
         if path == '/styles.css': return self.static('styles.css', 'text/css; charset=utf-8')
         if path == '/app.js': return self.static('app.js', 'text/javascript; charset=utf-8')
         if path == '/background.js': return self.static('background.js', 'text/javascript; charset=utf-8')
@@ -762,6 +798,15 @@ class H(BaseHTTPRequestHandler):
                 else: webbrowser.open(file.as_uri())
                 return self.data({'ok': True})
             except OSError as exc: return self.data({'error': sanitize_log(str(exc))}, 400)
+        if path == '/api/pause':
+            try:pause_download(d.get('job_id'),d.get('index'));return self.data({'ok':True})
+            except ValueError as exc:return self.data({'error':str(exc)},400)
+        if path == '/api/resume':
+            try:resume_download(d.get('job_id'),d.get('index'));return self.data({'ok':True})
+            except ValueError as exc:return self.data({'error':str(exc)},400)
+        if path == '/api/folder/validate':
+            try:return self.data({'folder':str(validate_destination(d.get('folder')))})
+            except (ValueError,OSError) as exc:return self.data({'error':str(exc)},400)
         if path == '/api/folder/pick':
             try:
                 p = choose_folder()
@@ -787,6 +832,8 @@ class H(BaseHTTPRequestHandler):
             with LOCK:
                 if not isinstance(ix, int) or (jid, ix) not in CANCEL: return self.data({'error': 'Item not found'}, 404)
                 ev = CANCEL[(jid, ix)]
+                PAUSE.discard((jid,ix))
+                if JOBS[jid]['items'][ix]['status']=='paused':item_set(jid,ix,status='canceled',phase='Canceled');finish_counts(jid)
                 ev.set()
                 proc = PROCESSES.get((jid, ix))
                 item_set(jid, ix, phase='Canceling…')

@@ -1,0 +1,17 @@
+'use strict';
+const {chromium}=require('C:/Users/afahk/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const cp=require('child_process'),path=require('path'),fs=require('fs'),assert=require('assert');
+(async()=>{const root=path.resolve(__dirname,'..'),out=path.join(root,'.qa-ui');fs.mkdirSync(out,{recursive:true});
+ const server=cp.spawn('python',[path.join(root,'service/app.py')],{env:{...process.env,FRAMEGRAB_DATA_DIR:path.join(out,'data'),FRAMEGRAB_TOOLS_DIR:path.join(root,'tools'),FRAMEGRAB_SERVICE_PORT:'8289',FRAMEGRAB_API_TOKEN:'ui-test'},windowsHide:true,stdio:'ignore'});
+ let browser;try{for(let i=0;i<80;i++){try{const r=await fetch('http://127.0.0.1:8289/api/state',{headers:{'X-FrameGrab-Token':'ui-test'}});if(r.ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
+ browser=await chromium.launch({channel:'msedge',headless:true});const context=await browser.newContext({viewport:{width:1360,height:960},extraHTTPHeaders:{'X-FrameGrab-Token':'ui-test'}});let persisted={};
+ await context.addInitScript(()=>{window.framegrabNative={sessionToken:'ui-test',clipboardRead:async()=>'',clipboardWrite:async()=>true,version:async()=>({version:'8.3.0',isPackaged:true}),appearanceLoad:async()=>JSON.parse(localStorage.getItem('native-appearance')||'{}'),appearanceSave:async p=>localStorage.setItem('native-appearance',JSON.stringify(p)),updateStatus:async()=>({status:'configured',feed:'https://tw1xnyx.github.io/FrameGrab/patch-feed.json'}),onUpdate:()=>{},chooseFolder:async()=> 'C:\\Downloads Unicode test',diagnostics:async()=>({})};});
+ const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:8289/');await page.waitForSelector('#paletteSelect option',{state:'attached'});
+ await page.locator('[data-page="settings"]').first().click();const result=[];
+ for(const id of ['clean','red','navy','graphite','emerald','purple','sand']){await page.selectOption('#paletteSelect',id);await page.waitForTimeout(260);const theme=await page.evaluate(()=>({id:document.documentElement.dataset.palette,variant:document.documentElement.dataset.theme,tokens:Object.fromEntries(['ink','sub','muted','solid','accent','on-accent'].map(k=>[k,getComputedStyle(document.documentElement).getPropertyValue('--'+k).trim()]))}));assert.equal(theme.id,id);result.push(theme);await page.screenshot({path:path.join(out,id+'.png'),fullPage:true});}
+ await page.reload();await page.waitForTimeout(500);assert.equal(await page.evaluate(()=>document.documentElement.dataset.palette),'sand');
+ await page.locator('#newButton').click();await page.waitForSelector('#downloadDestination',{state:'visible'});assert(await page.locator('#browseDestination').isVisible());assert(await page.locator('#downloadMode').isVisible());await page.screenshot({path:path.join(out,'download.png'),fullPage:true});
+ await page.emulateMedia({reducedMotion:'reduce'});const duration=await page.locator('#startDownload').evaluate(e=>getComputedStyle(e).transitionDuration);assert(duration.split(',').every(n=>parseFloat(n)===0),duration);
+ assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({themes:result,persistence:true,browseVisible:true,reducedMotion:true,rendererErrors:errors},null,2));console.log('PASS seven live themes, persistence, download controls, reduced motion and renderer error checks');
+ }finally{if(browser)await browser.close();server.kill();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

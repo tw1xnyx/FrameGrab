@@ -25,7 +25,7 @@ public class UpdaterForm : Form {
     public UpdaterForm() {
         Text="FrameGrab Update";ClientSize=new Size(540,250);FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;StartPosition=FormStartPosition.CenterScreen;
         BackColor=Color.FromArgb(246,248,253);Font=new Font("Segoe UI",10);
-        Controls.Add(new Label {Text="FrameGrab 8.2",Font=new Font("Segoe UI",20,FontStyle.Bold),Location=new Point(28,24),AutoSize=true});
+        Controls.Add(new Label {Text="FrameGrab 8.3",Font=new Font("Segoe UI",20,FontStyle.Bold),Location=new Point(28,24),AutoSize=true});
         Controls.Add(new Label {Text="Premiere compatibility & incremental updates",Location=new Point(30,68),AutoSize=true,ForeColor=Color.DimGray});
         status.SetBounds(30,108,475,38);status.Text="Locating your existing FrameGrab installation…";Controls.Add(status);
         bar.SetBounds(30,151,430,20);bar.Minimum=0;bar.Maximum=100;Controls.Add(bar);
@@ -35,7 +35,7 @@ public class UpdaterForm : Form {
         FormClosing+=(s,e)=>{if(running)e.Cancel=true;};Shown+=async(s,e)=>await Run();
     }
     void UpdateUI(int n,string text){if(IsDisposed)return;BeginInvoke((Action)(()=>{bar.Value=Math.Max(0,Math.Min(100,n));percent.Text=n+"%";status.Text=text;}));}
-    async Task Run(){int code=0;try{await Task.Run(()=>PatchEngine.Apply(Program.Target,UpdateUI));UpdateUI(100,"Update complete. FrameGrab is ready.");details="FrameGrab 8.2.0 incremental update completed.";}
+    async Task Run(){int code=0;try{await Task.Run(()=>PatchEngine.Apply(Program.Target,UpdateUI));UpdateUI(100,"Update complete. FrameGrab is ready.");details="FrameGrab 8.3.0 incremental update completed.";}
         catch(Exception e){code=1;details=e.ToString();PatchEngine.Log(details);UpdateUI(bar.Value,"Update could not complete. See details; rollback status is recorded in the log.");}
         Program.ExitCode=code;running=false;close.Enabled=true;copy.Visible=true;close.Focus();}
 }
