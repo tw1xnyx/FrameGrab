@@ -1,9 +1,6 @@
 name: FrameGrab Windows x64 release
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    tags: ['v*']
 permissions:
   contents: read
 jobs:

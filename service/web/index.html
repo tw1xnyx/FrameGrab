@@ -67,9 +67,9 @@
       <section class="settings-card desktop-settings" id="desktopSettings">
         <h2>Desktop updates</h2><p>Install updates into the same application without losing your downloads or settings.</p>
         <div class="setting-row"><div><strong>Current version</strong><small id="desktopVersion">Detecting installed build...</small></div><span id="updateStatus">Checking configuration...</span></div>
-        <label class="field-label" for="updateFeed">HTTPS signed incremental update feed</label>
-        <div class="folder-input-line"><input id="updateFeed" type="url" placeholder="https://updates.example.com/framegrab/" spellcheck="false"><button id="saveUpdateFeed" class="quiet-btn">Save</button></div>
-        <p class="muted-note">Updates are verified with a publisher signature. You choose when to download and install. Your settings and history stay in place.</p>
+        <p class="muted-note">Built-in source: public FrameGrab-Updates releases on GitHub. No setup or URL is required.</p><details><summary>Advanced: custom HTTPS update source</summary><label class="field-label" for="updateFeed">Release source override</label>
+        <div class="folder-input-line"><input id="updateFeed" type="url" placeholder="Built-in GitHub Releases" spellcheck="false"><button id="saveUpdateFeed" class="quiet-btn">Save</button></div>
+        </details><p class="muted-note">Downloads use HTTPS and are checked against release checksums. You control installation; settings and history stay in place.</p>
         <div class="inline-actions desktop-action-row"><button id="checkUpdates" class="primary-btn">Check for Updates</button><progress id="updateProgress" max="100" value="0" hidden aria-label="Update download progress"></progress><button id="downloadUpdate" class="quiet-btn" disabled>Download &amp; Install</button><button id="installUpdate" class="quiet-btn" disabled>Restart & Install</button></div>
         <p id="updateDetails" role="status" aria-live="polite"></p>
       </section>

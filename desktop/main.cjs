@@ -123,13 +123,13 @@ function emitUpdate(payload) {
 function setupUpdater() {
   autoUpdater.autoDownload=false;
   autoUpdater.autoInstallOnAppQuit=false;
-  autoUpdater.on('checking-for-update',()=>emitUpdate({status:'checking'}));
+  autoUpdater.on('checking-for-update',()=>emitUpdate({status:'checking',error:null,progress:0}));
   autoUpdater.on('update-available',info=>emitUpdate({status:'available',available:info.version,releaseNotes:typeof info.releaseNotes==='string'?info.releaseNotes:JSON.stringify(info.releaseNotes||''),updateSize:info.files?.[0]?.size||null}));
   autoUpdater.on('update-not-available',()=>emitUpdate({status:'current',available:null}));
   autoUpdater.on('download-progress',p=>emitUpdate({status:'downloading',progress:p.percent||0,bytesPerSecond:p.bytesPerSecond,transferred:p.transferred,total:p.total}));
   autoUpdater.on('update-downloaded',info=>emitUpdate({status:'downloaded',available:info.version,progress:100}));
   autoUpdater.on('error',err=>{log('Update error: '+err.message);emitUpdate({status:'error',error:safeReport(err.message)});});
-  const saved=readJSON(updateCfg).url;const feed=(saved&&!saved.includes('example.invalid')&&!saved.includes('tw1xnyx.github.io'))?saved:BUILTIN_UPDATE_FEED;
+  const saved=readJSON(updateCfg).url;const feed=(saved&&isValidUpdateFeed(saved,allowLocalUpdates)&&!saved.includes('example.invalid')&&!saved.includes('tw1xnyx.github.io'))?saved:BUILTIN_UPDATE_FEED;
   if(isValidUpdateFeed(feed,allowLocalUpdates)) {
     setFeed(feed);
     if(app.isPackaged) {
@@ -206,7 +206,7 @@ function setupIpc() {
   });
   handle('framegrab:clipboard-read',()=>clipboard.readText().slice(0,150000));
   handle('framegrab:clipboard-write',(_event,value)=>{clipboard.writeText(String(value));return true;});
-  handle('framegrab:update-status',()=>({...updateState,feed:readJSON(updateCfg).url||BUILTIN_UPDATE_FEED,isPackaged:app.isPackaged}));
+  handle('framegrab:update-status',()=>({...updateState,feed:updateState.feed||BUILTIN_UPDATE_FEED,isPackaged:app.isPackaged}));
   handle('framegrab:update-set-feed',(_event,url)=>{
     if(!isValidUpdateFeed(url,allowLocalUpdates)) throw new Error('A secure HTTPS update hosting URL is required.');
     setFeed(url);

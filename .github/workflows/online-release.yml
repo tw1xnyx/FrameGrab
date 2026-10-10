@@ -61,6 +61,10 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'Desktop tests failed'}
           python tests/test_windows_real.py
           if($LASTEXITCODE -ne 0){throw 'Downloader tests failed'}
+          python tests/test_locations.py
+          if($LASTEXITCODE -ne 0){throw 'Location tests failed'}
+          python tests/test_pause_resume.py
+          if($LASTEXITCODE -ne 0){throw 'Pause/resume tests failed'}
       - name: Verify NSIS install, launch and preservation
         shell: pwsh
         run: ./scripts/Verify-Windows-Install.ps1
