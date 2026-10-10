@@ -1,11 +1,6 @@
 name: FrameGrab installation verification
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - scripts/Verify-Windows-Install.ps1
-      - .github/workflows/windows-install-qa.yml
 permissions:
   contents: read
   actions: read
