@@ -65,7 +65,7 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'Location tests failed'}
           python tests/test_pause_resume.py
           if($LASTEXITCODE -ne 0){throw 'Pause/resume tests failed'}
-      - name: Verify NSIS custom path, launch and preservation
+      - name: Verify NSIS paths containing spaces, launch and preservation
         shell: pwsh
         run: ./scripts/Verify-Windows-Install.ps1
       - name: Verify metadata and SHA256 checksums
