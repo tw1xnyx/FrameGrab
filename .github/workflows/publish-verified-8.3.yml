@@ -1,0 +1,67 @@
+name: Publish verified FrameGrab 8.3 bootstrap release
+on:
+  workflow_run:
+    workflows: [FrameGrab verified GitHub Releases]
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: framegrab-public-8.3.0
+  cancel-in-progress: false
+jobs:
+  publish:
+    # One-time promotion authorized by the owner after account setup. Never build twice.
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_sha == '47460a7622257223a71169fbb7714f9d433c0f47'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Verify publishing repository access
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+        run: |
+          if(!$env:GH_TOKEN){throw 'RELEASE_PUBLISH_TOKEN is missing'}
+          $repo=gh api repos/tw1xnyx/FrameGrab-Updates | ConvertFrom-Json
+          if($LASTEXITCODE -ne 0 -or $repo.private){throw 'Public binary repository is inaccessible or private'}
+      - uses: actions/download-artifact@v4
+        with:
+          name: FrameGrab-Windows-x64-${{ github.event.workflow_run.head_sha }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: dist
+      - name: Verify exact distribution files again
+        shell: pwsh
+        run: |
+          $expected=@('FrameGrab_Setup_8.3.0.exe','FrameGrab_Setup_8.3.0.exe.blockmap','latest.yml','SHA256SUMS.txt')
+          $actual=@(Get-ChildItem dist -File | ForEach-Object Name)
+          if(@(Compare-Object $expected $actual).Count){throw 'Unexpected or missing release assets'}
+          $seen=@()
+          foreach($line in Get-Content dist/SHA256SUMS.txt){
+            if($line -notmatch '^([a-f0-9]{64})  (.+)$'){throw 'Malformed SHA256 manifest'}
+            $digest=$Matches[1];$name=$Matches[2]
+            if($name -notin $expected -or $name -eq 'SHA256SUMS.txt' -or $name -in $seen){throw 'Unexpected checksum entry'}
+            if((Get-FileHash "dist/$name" -Algorithm SHA256).Hash.ToLowerInvariant() -ne $digest){throw "Hash mismatch: $name"}
+            $seen += $name
+          }
+          if($seen.Count -ne 3){throw 'Incomplete SHA256 manifest'}
+          $metadata=Get-Content dist/latest.yml -Raw
+          if($metadata -notmatch '(?m)^version: 8\.3\.0\r?$' -or $metadata -notmatch '(?m)^path: FrameGrab_Setup_8\.3\.0\.exe\r?$'){throw 'Incorrect release metadata'}
+          if($metadata -notmatch '(?m)^sha512: ([A-Za-z0-9+/=]+)\r?$'){throw 'Missing SHA512'}
+          $sha512=$Matches[1]
+          $bytes=[IO.File]::ReadAllBytes((Resolve-Path dist/FrameGrab_Setup_8.3.0.exe))
+          if($bytes[0] -ne 77 -or $bytes[1] -ne 90){throw 'Invalid Windows executable header'}
+          if([Convert]::ToBase64String([Security.Cryptography.SHA512]::HashData($bytes)) -ne $sha512){throw 'Installer SHA512 mismatch'}
+      - name: Publish binaries without source code
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+        run: |
+          $assets=@(Get-ChildItem dist -File | ForEach-Object FullName)
+          gh release create v8.3.0 --repo tw1xnyx/FrameGrab-Updates --title 'FrameGrab 8.3.0' --notes-file docs/Release_8.3.0.md --draft @assets
+          if($LASTEXITCODE -ne 0){throw 'Draft upload failed; no published release was changed'}
+          gh release edit v8.3.0 --repo tw1xnyx/FrameGrab-Updates --draft=false --latest
+          if($LASTEXITCODE -ne 0){throw 'Draft could not be published'}
