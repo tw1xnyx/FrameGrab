@@ -54,7 +54,7 @@ jobs:
       - name: Build existing Electron application
         shell: pwsh
         run: ./scripts/Build-Windows.ps1
-      - name: Test updater transport, theme contrast and existing functionality
+      - name: Test updater transport, fourteen exact palettes and existing functionality
         shell: pwsh
         run: |
           node --test tests-desktop/*.test.cjs

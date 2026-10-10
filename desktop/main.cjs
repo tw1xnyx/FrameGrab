@@ -153,6 +153,15 @@ async function installUpdate() {
   autoUpdater.quitAndInstall(false,true);
   return true;
 }
+function applyWindowAppearance(prefs=readJSON(path.join(dataDir,'appearance.json'),{})) {
+  if(!mainWindow||process.platform!=='win32')return;
+  const theme=require(path.join(roots().service,'web','themes.js'));
+  const variant=prefs.theme==='system'?(nativeTheme.shouldUseDarkColors?'dark':'light'):(prefs.theme||'light');
+  const colors=theme.tokens(prefs.palette||'clean',variant);
+  mainWindow.setTitleBarOverlay({color:colors.solid,symbolColor:colors.ink,height:41});
+  mainWindow.setBackgroundColor(colors.base);
+}
+nativeTheme.on('updated',()=>applyWindowAppearance());
 function createWindow() {
   const ws=readJSON(windowState,{});
   const bounds=Object.fromEntries(['width','height','x','y'].filter(k=>Number.isInteger(ws[k])).map(k=>[k,ws[k]]));
@@ -164,6 +173,7 @@ function createWindow() {
     webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,
       webSecurity:true,devTools:isDev}
   });
+  applyWindowAppearance();
   mainWindow.once('ready-to-show',()=>mainWindow.show());
   mainWindow.webContents.on('will-navigate',(e,url)=>{
     if(!url.startsWith(`http://127.0.0.1:${servicePort}/`)) {e.preventDefault();if(/^https?:\/\//.test(url))shell.openExternal(url);}
@@ -186,11 +196,11 @@ function setupIpc() {
   });
   handle('framegrab:appearance-load',()=>readJSON(path.join(dataDir,'appearance.json'),{}));
   handle('framegrab:appearance-save',(_event,value)=>{
-    const out={};const choices={palette:['clean','red','navy','graphite','emerald','purple','sand'],theme:['light','dark','system'],preset:['aurora','silk','lagoon']};
+    const out={};const choices={palette:['prismatic','neon','aurora','rose','tangerine','matcha','titanium','clean','red','navy','graphite','emerald','purple','sand'],theme:['light','dark','system'],preset:['aurora','silk','lagoon']};
     for(const [k,list] of Object.entries(choices))if(list.includes(value?.[k]))out[k]=value[k];
     for(const k of ['motion','optics','thumbs'])if(typeof value?.[k]==='boolean')out[k]=value[k];
     if(Number.isFinite(value?.intensity))out.intensity=Math.max(0,Math.min(100,value.intensity));
-    writeAtomic(path.join(dataDir,'appearance.json'),out);return out;
+    writeAtomic(path.join(dataDir,'appearance.json'),out);applyWindowAppearance(out);return out;
   });
   handle('framegrab:version',()=>{const marker=path.join(dataDir,'pending-update.json');const justUpdated=readJSON(marker,{}).version===app.getVersion();if(justUpdated)fs.unlinkSync(marker);return {version:app.getVersion(),justUpdated,isPackaged:app.isPackaged,platform:process.platform};});
   handle('framegrab:choose-folder',async()=>{
