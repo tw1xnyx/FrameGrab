@@ -4,7 +4,8 @@ $project=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $dest=Join-Path $env:RUNNER_TEMP 'FrameGrab Installation Test'
 if(!$env:RUNNER_TEMP){throw 'This test is restricted to the CI runner'}
 $setup=Get-ChildItem (Join-Path $project 'dist') -Filter 'FrameGrab_Setup_*.exe' | Select-Object -First 1
-$p=Start-Process $setup.FullName -ArgumentList "/S /currentuser /D=`"$dest`"" -WindowStyle Hidden -PassThru -Wait
+# NSIS requires /D last and unquoted, including paths containing spaces.
+$p=Start-Process $setup.FullName -ArgumentList "/S /currentuser /D=$dest" -WindowStyle Hidden -PassThru -Wait
 if($p.ExitCode -ne 0){throw "Installer exit $($p.ExitCode)"}
 $exe=Join-Path $dest 'FrameGrab.exe'
 if(!(Test-Path $exe)){Get-ChildItem $env:RUNNER_TEMP -Recurse -Filter FrameGrab.exe -ErrorAction SilentlyContinue | Select-Object FullName | Format-List;throw 'Installed executable missing at requested path'}
