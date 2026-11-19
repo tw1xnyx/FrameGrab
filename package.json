@@ -5,7 +5,7 @@
   "description": "Native Windows video downloader with an internally managed local media engine",
   "main": "desktop/main.cjs",
   "author": "FrameGrab",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "electron .",
